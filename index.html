@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>Blackjack</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!--<script src="main.js"> </script>-->
+        <!-- type ="test/javascript"-->
+
+        
+    </head>
+    
+    <body>
+        <div> 
+            <table align ="center" cellpadding ="0" cellspacing="10" border =" 0;">
+                <tbody>
+                    <tr>
+                        <td align ="center">
+                            First address
+                            <input type="text" id="address1" value ="A1 = 0xc2212a5bf5d8b64e2c7f6d5c839f3f80a6e14eb6">
+                            Second address
+                            <input type="text" id="address2" value ="A2 = 0x728b3fc4c529a8a79ae3406c307878601d3bcee3">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align ="center">
+                            <div id = message>
+                            Debug messages
+                            </div>
+                            <input type="text" id="debug" value ="nothing yet">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align ="center">
+                            <input type="button" id="hitButton" value="Hit"  disabled> <!--onClick = "hit()"-->
+                            <input type="button" id="standButton" value="Stand" disabled> <!--onClick = "stand()" -->
+                            <input type="button" id="newGameButtond" value="Play as dealer" onClick = "startGame()" disabled>
+                            <input type="button" id="newGameButtonp" value="Play as player" onClick = "startGame()">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align ="center">
+                            Input bet amount
+                            <input type="number" id="bet" value ="100">
+                            Wallet (wei)
+                            <input type="number" id="walletVal" value ="99" disabled>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align ="center">
+                            Player cards:
+                            <input type="text" id="pCards" value ="test" disabled>
+                            Dealer cards:
+                            <input type="text" id="dCards" value ="test" disabled>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align ="center">
+                            Player Value:
+                            <input type="text" id="pVal" value ="0" disabled>
+                            Dealer Value:
+                            <input type="text" id="dVal" value ="0" disabled>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        
+        <script src="ethjs.js"></script>   
+        <!--<script src="ethereumjs-testrpc.js"></script>-->
+  
+        <script>
+            
+            var gameInProgress = false;
+            var dealerCards;  // Arrays holding the DisplayCard objects used to show the cards
+            var playerCards;
+            var BlackjackContract; // Make public
+            var BlackjackInstance;
+            var web3Provider;
+            //var ganache = require("ganache-cli");
+
+
+            dealerCardCount = 0;  // Number of cards actually in the dealer's hand
+            playerCardCount = 0;   // Number of cards actually in the player's hand
+            
+            playersum = 0;
+            dealersum = 0;
+            
+            var playerMoney;
+            var dealermoney;
+            var betVal;
+            
+            function setup() { 
+               // alert ("HELLO");
+                debugMsg = document.getElementById("debug");
+                message = document.getElementById("message");
+                hitButton = document.getElementById("hitButton");
+                standButton = document.getElementById("standButton");
+                playerButton = document.getElementById("newGameButtonp");
+                dealerButton = document.getElementById("newGameButtond");
+                address1 = document.getElementById("address1");
+                address2 = document.getElementById("address2");
+                bet = document.getElementById("bet");
+                pCards = document.getElementById("pCards");
+                dCards = document.getElementById("dCards");
+                pVal = document.getElementById("pVal");
+                dVal = document.getElementById("dVal");
+                walletVal = document.getElementById("walletVal");
+                
+                //debugMsg.value = gameInProgress.value.toString();
+                message.innerHTML = "In Setup";
+               
+                dealerMoney = 2000; // replace with Sol call
+                playerMoney = 2000; // replace with Sol call
+                
+                initWeb3();
+                
+                //alert ("End of Setp");
+            }
+            function push (){
+                
+                gameInProgress = false;
+                standButton.disabled = true;
+                hitButton.disabled = true;
+                playerButton.disabled = false;
+                dealerButton.disabled = true;
+                debugMsg.value = "Tie Game - PUSH";
+                alert("Tie");
+                walletVal.value = playerMoney;
+            }
+            function pWin(){
+                gameInProgress = false;
+                standButton.disabled = true;
+                hitButton.disabled = true;
+                playerButton.disabled = false;
+                dealerButton.disabled = true;
+                debugMsg.value = "Player Wins";
+                alert("PLAYER WINS");
+                playerMoney += betVal*2/2;
+                dealerMoney -= betVal*2/2;
+                walletVal.value = playerMoney;
+            }
+            function dWin(){
+                gameInProgress = false;
+                standButton.disabled = true;
+                hitButton.disabled = true;
+                playerButton.disabled = false;
+                dealerButton.disabled = true;
+                debugMsg.value = "Player Loses";
+                alert("PLAYER LOSES");
+                playerMoney -= betVal*2/2;
+                dealerMoney += betVal*2/2;
+                walletVal.value = playerMoney;
+            }
+            
+            function startGame(){
+                alert ("in startGame");                          
+            }
+  
+            function standRecursion(){
+                BlackjackInstance.PlayerStand().then(function(){
+                                BlackjackInstance.DealerHit().then(function(){
+                                    BlackjackInstance.getLastDealer().then(function(res){
+                                        suit = res[0]; fval = res[1]; nval = res[2]*2/2;
+                                        dealerCards = dealerCards + fval + suit;
+                                        alert ("Dealer vals set");
+                                        dealersum += nval;
+                                        dCards.value = dealerCards;
+                                        dVal.value = dealersum;
+                                        alert("done dealer");
+                                        BlackjackInstance.checkDealer17(betVal).then(function(){
+                                            BlackjackInstance.getHandResults().then(function(res2){
+                                            // 1 = still play, 2 = Player Win, 3 = dealer win, 4 = Push
+                                            alert ("success with checkDealer17");
+                                            res2[0] = res2[0] * 2 / 2;
+                                            alert(res2[0]);
+                                            switch (res2[0]){
+                                                case 1:
+                                                    // Add recursive call back to top of function
+                                                    alert ("Re-call the Stand");
+                                                    standRecursion();
+                                                    alert ("executed OK");
+                                                    break;
+                                                case 2: 
+                                                    pWin();
+                                                    break;
+                                                case 3:
+                                                    dWin();
+                                                    break;
+                                                case 4:
+                                                    push();
+                                                    break;
+                                            }
+                                        });
+                            });
+                        });                                  
+                    });                                                              
+                });
+            }
+            
+            
+           
+            function initWeb3(){
+                message.innerHTML = "Starting to init web3"; // web3Provider
+                
+                    if (typeof web3 !== 'undefined') {
+                // If a web3 instance is already provided by Meta Mask.
+                    web3Provider = web3.currentProvider;
+                    web3 = new Web3(web3.currentProvider);
+                    debugMsg.value = "Web3 is defined";
+                    web3Provider = new Web3.providers.HttpProvider('http://localhost:8545');// Force it here. Not working otherwise
+                    } else {
+                    // Specify default instance if no web3 instance provided
+                    web3Provider = new Web3.providers.HttpProvider('http://localhost:8545');
+                    web3 = new Web3(web3Provider);
+                    debugMsg.value = "Web3 is undefined";
+                    }
+
+                message.innerHTML = "About to set provider";
+                //web3.setProvider(ganache.provider());
+                
+                var eth = new Eth(web3Provider); // OK WORKS
+                
+                message.innerHTML = "Provider set";
+
+                var BlackjackABI =[{"constant":false,"inputs":[{"name":"_player","type":"address"},{"name":"_fund","type":"uint256"}],"name":"setPlayer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"sender","type":"address"},{"name":"receiver","type":"address"},{"name":"amount","type":"uint256"}],"name":"sendCoin","outputs":[{"name":"sufficient","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_dealer","type":"address"},{"name":"_fund","type":"uint256"}],"name":"setDealer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"DealerHit","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"player","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"bettingAmount","type":"uint256"}],"name":"checkDealer17","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"deal","outputs":[{"name":"suit","type":"string"},{"name":"val","type":"string"},{"name":"numval","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"DeckInit","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getBalanceInEth","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"PlayerStand","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"playerFund","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"dealerFund","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"amount","type":"uint256"},{"name":"conversionRate","type":"uint256"}],"name":"convert","outputs":[{"name":"convertedAmount","type":"uint256"}],"payable":false,"stateMutability":"pure","type":"function"},{"constant":true,"inputs":[],"name":"dealer","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getLastDealer","outputs":[{"name":"","type":"string"},{"name":"","type":"string"},{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"DealerTurn","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"getLastPlayer","outputs":[{"name":"","type":"string"},{"name":"","type":"string"},{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"dealerSum","type":"uint256"},{"name":"playerSum","type":"uint256"},{"name":"bettingAmount","type":"uint256"},{"name":"premium","type":"uint256"}],"name":"compare","outputs":[{"name":"results","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"PlayerHit","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"getBalance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getHandResults","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"name":"winner","type":"uint256"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"GameState","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"winner","type":"uint256"},{"indexed":false,"name":"amount","type":"uint256"}],"name":"GameEnded","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"msg","type":"string"}],"name":"TestEvent","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"suit","type":"string"},{"indexed":false,"name":"value","type":"string"},{"indexed":false,"name":"numval","type":"uint256"}],"name":"CardDealt","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"_from","type":"address"},{"indexed":true,"name":"_to","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Transfer","type":"event"}];
+                var BlackjackBytecode = '0x60006029556001602a8190556002602b556101008181527f43000000000000000000000000000000000000000000000000000000000000006101205260809081526101408281527f44000000000000000000000000000000000000000000000000000000000000006101605260a0526101808281527f48000000000000000000000000000000000000000000000000000000000000006101a05260c0526102006040526101c09182527f53000000000000000000000000000000000000000000000000000000000000006101e05260e091909152620000e39060cb906004620003d8565b50604080516101e08101825260016101a082018181527f41000000000000000000000000000000000000000000000000000000000000006101c08401528252825180840184528181527f320000000000000000000000000000000000000000000000000000000000000060208281019190915280840191909152835180850185528281527f33000000000000000000000000000000000000000000000000000000000000008183015283850152835180850185528281527f3400000000000000000000000000000000000000000000000000000000000000818301526060840152835180850185528281527f3500000000000000000000000000000000000000000000000000000000000000818301526080840152835180850185528281527f36000000000000000000000000000000000000000000000000000000000000008183015260a0840152835180850185528281527f37000000000000000000000000000000000000000000000000000000000000008183015260c0840152835180850185528281527f38000000000000000000000000000000000000000000000000000000000000008183015260e0840152835180850185528281527f390000000000000000000000000000000000000000000000000000000000000081830152610100840152835180850185528281527f540000000000000000000000000000000000000000000000000000000000000081830152610120840152835180850185528281527f4a0000000000000000000000000000000000000000000000000000000000000081830152610140840152835180850185528281527f51000000000000000000000000000000000000000000000000000000000000008183015261016084015283518085019094529083527f4b0000000000000000000000000000000000000000000000000000000000000090830152610180810191909152620003b19060cf90600d6200042f565b50348015620003bf57600080fd5b5060008054600160a060020a0319163317905562000588565b82600481019282156200041d579160200282015b828111156200041d57825180516200040c91849160209091019062000474565b5091602001919060010190620003ec565b506200042b929150620004f5565b5090565b82600d81019282156200041d579160200282015b828111156200041d57825180516200046391849160209091019062000474565b509160200191906001019062000443565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f10620004b757805160ff1916838001178555620004e7565b82800160010185558215620004e7579182015b82811115620004e7578251825591602001919060010190620004ca565b506200042b92915062000520565b6200051d91905b808211156200042b5760006200051382826200053d565b50600101620004fc565b90565b6200051d91905b808211156200042b576000815560010162000527565b50805460018160011615610100020316600290046000825580601f1062000565575062000585565b601f01602090049060005260206000209081019062000585919062000520565b50565b61169180620005986000396000f3006080604052600436106101275763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663014892a4811461012c5780630b40bd88146101645780631207ca521461018e57806316fd0608146101b257806348db5f89146101c95780634d495c33146101fa578063553df021146102245780635fbd5bdc1461031e5780637bd703e8146103335780637bde97f9146103545780638410315b146103695780638da5cb5b1461037e57806391d2dc481461039357806396e4ee3d146103a85780639de2ee21146103c3578063a4bf0108146103d8578063cb2f9a4c146103ed578063cbbbbedf14610402578063d6dcb49114610417578063da323e7c14610438578063f8b2cb4f1461044d578063f9056e881461046e575b600080fd5b34801561013857600080fd5b50610150600160a060020a0360043516602435610483565b604080519115158252519081900360200190f35b34801561017057600080fd5b50610150600160a060020a03600435811690602435166044356104c5565b34801561019a57600080fd5b50610150600160a060020a036004351660243561055f565b3480156101be57600080fd5b506101c761059e565b005b3480156101d557600080fd5b506101de610654565b60408051600160a060020a039092168252519081900360200190f35b34801561020657600080fd5b50610212600435610663565b60408051918252519081900360200190f35b34801561023057600080fd5b50610239610823565b604051808060200180602001848152602001838103835286818151815260200191508051906020019080838360005b83811015610280578181015183820152602001610268565b50505050905090810190601f1680156102ad5780820380516001836020036101000a031916815260200191505b50838103825285518152855160209182019187019080838360005b838110156102e05781810151838201526020016102c8565b50505050905090810190601f16801561030d5780820380516001836020036101000a031916815260200191505b509550505050505060405180910390f35b34801561032a57600080fd5b506101c7610d3b565b34801561033f57600080fd5b50610212600160a060020a0360043516610e5f565b34801561036057600080fd5b506101c7610e7a565b34801561037557600080fd5b50610212610e82565b34801561038a57600080fd5b506101de610e88565b34801561039f57600080fd5b50610212610e97565b3480156103b457600080fd5b50610212600435602435610e9d565b3480156103cf57600080fd5b506101de610ea1565b3480156103e457600080fd5b50610239610eb0565b3480156103f957600080fd5b506101c76110a7565b34801561040e57600080fd5b50610239611176565b34801561042357600080fd5b506102126004356024356044356064356111de565b34801561044457600080fd5b506101c761142a565b34801561045957600080fd5b50610212600160a060020a03600435166114f3565b34801561047a57600080fd5b5061021261150e565b6002805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a039384161790819055909116600090815260066020526040902055600190565b600160a060020a0383166000908152600660205260408120548211156104ed57506000610558565b600160a060020a03808516600081815260066020908152604080832080548890039055938716808352918490208054870190558351868152935191937fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef929081900390910190a35060015b9392505050565b6001805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a039384161780825590921660009081526006602052604090205590565b6027546105a9610823565b601884600581106105b657fe5b600302016000601886600581106105c957fe5b6003020160010160006018600001886005811015156105e457fe5b6003020160020185905550845161060091906020870190611517565b5050835161061391906020860190611517565b5060189250839150506005811061062657fe5b600302016002015460288054909101908190556027805460010190556010101561065157602b54602d555b50565b600254600160a060020a031681565b602854600090819081906011111561067d575060016106d7565b602854601010801561069157506028546016115b156106cf5760175460285410156106aa57506001905060025b60175460285411156106ba575060035b60175460285414156106ca575060045b6106d7565b506001905060025b60018111156107dc5781156107635760015460025461070391600160a060020a039081169116866104c5565b1561070d5761075e565b506005805460ff1916600117905560025460039060008051602061164683398151915290829061074590600160a060020a0316610e5f565b6040805192835260208301919091528051918290030190a15b6107dc565b60025460015461078091600160a060020a039081169116866104c5565b1561078a576107dc565b506005805460ff19166001908117909155546002906000805160206116468339815191529082906107c390600160a060020a0316610e5f565b6040805192835260208301919091528051918290030190a15b604080518281526020810186905281517f4b5de2075ef693ef5f4607a6b8b9a40b725a253f266a58fadf7cf9bd9805f99c929181900390910190a1602c8190559392505050565b6060806000806000806000610836611591565b60ca5460341161084557600080fd5b60ca5460340394508460001943014081151561085d57fe5b60ca5491900694506000196034918203019350602e908590811061087d57fe5b60030201805460408051602060026001851615610100026000190190941693909304601f810184900484028201840190925281815292945084918301828280156109085780601f106108dd57610100808354040283529160200191610908565b820191906000526020600020905b8154815290600101906020018083116108eb57829003601f168201915b505050918352505060018281018054604080516020600295841615610100026000190190931694909404601f8101839004830285018301909152808452908301828280156109975780601f1061096c57610100808354040283529160200191610997565b820191906000526020600020905b81548152906001019060200180831161097a57829003601f168201915b5050505050602082015260028201546040820152602e83603481106109b857fe5b60030201602e85603481106109c957fe5b60030201600082018160000190805460018160011615610100020316600290046109f49291906115b3565b5060018201816001019080546001816001161561010002031660029004610a1c9291906115b3565b5060029182015491015580602e8460348110610a3457fe5b600302016000820151816000019080519060200190610a54929190611517565b506020828101518051610a6d9260018501920190611517565b5060409182015160029182015560ca805460019081019091558482015483519384018190526060808552865460001961010082861615020116939093049284018390527f58910095584cca529bba7f5ac1d747b5c1a875b81b1ab46d3b5ab1a7cf2128669386939284019281906020820190608083019087908015610b335780601f10610b0857610100808354040283529160200191610b33565b820191906000526020600020905b815481529060010190602001808311610b1657829003601f168201915b5050838103825285546002600019610100600184161502019091160480825260209091019086908015610ba75780601f10610b7c57610100808354040283529160200191610ba7565b820191906000526020600020905b815481529060010190602001808311610b8a57829003601f168201915b50509550505050505060405180910390a17fe75028ff36bb6473da3731a30e1aeeae9988e2415dba2c4e91e0357955065fba826001016040518080602001828103825283818154600181600116156101000203166002900481526020019150805460018160011615610100020316600290048015610c665780601f10610c3b57610100808354040283529160200191610c66565b820191906000526020600020905b815481529060010190602001808311610c4957829003601f168201915b50509250505060405180910390a16040805160208082528454600260001961010060018416150201909116049082018190527fe75028ff36bb6473da3731a30e1aeeae9988e2415dba2c4e91e0357955065fba92859291829182019084908015610d115780601f10610ce657610100808354040283529160200191610d11565b820191906000526020600020905b815481529060010190602001808311610cf457829003601f168201915b50509250505060405180910390a18051602082015160409092015190999198509650945050505050565b602954602d556000602c819055601781905560288190556016819055602781905560ca81905580805b6004821015610e5a575060005b600d811015610e4f5760cb8260048110610d8757fe5b01602e8460348110610d9557fe5b600302016000019080546001816001161561010002031660029004610dbb9291906115b3565b5060cf81600d8110610dc957fe5b01602e8460348110610dd757fe5b600302016001019080546001816001161561010002031660029004610dfd9291906115b3565b50600a811015610e285760018101602e8460348110610e1857fe5b6003020160020181905550610e43565b600a602e8460348110610e3757fe5b60030201600201819055505b60019283019201610d71565b600190910190610d64565b505050565b6000610e74610e6d836114f3565b6001610e9d565b92915050565b602a54602d55565b60045481565b600054600160a060020a031681565b60035481565b0290565b600154600160a060020a031681565b6060806000806018600f01541115611055576027546018906000190160058110610ed657fe5b60030201600001601860000160016018600f015403600581101515610ef757fe5b60030201600101601860000160016018600f015403600581101515610f1857fe5b6003020160020154828054600181600116156101000203166002900480601f016020809104026020016040519081016040528092919081815260200182805460018160011615610100020316600290048015610fb55780601f10610f8a57610100808354040283529160200191610fb5565b820191906000526020600020905b815481529060010190602001808311610f9857829003601f168201915b5050855460408051602060026001851615610100026000190190941693909304601f8101849004840282018401909252818152959850879450925084019050828280156110435780601f1061101857610100808354040283529160200191611043565b820191906000526020600020905b81548152906001019060200180831161102657829003601f168201915b505050505091509250925092506110a2565b505060408051808201825260018082527f58000000000000000000000000000000000000000000000000000000000000006020808401829052845180860190955291845290830152915060025b909192565b602a54602d54600091146110ba57600080fd5b6028546011111561116d57506027546110d1610823565b601884600581106110de57fe5b600302016000601886600581106110f157fe5b60030201600101600060186000018860058110151561110c57fe5b6003020160020185905550845161112891906020870190611517565b5050835161113b91906020860190611517565b5060189250839150506005811061114e57fe5b60030201600201546028805490910190556027805460010190556110ba565b50602b54602d55565b6060806000806007600f0154111561105557601654600790600019016005811061119c57fe5b60030201600001600760000160016007600f0154036005811015156111bd57fe5b60030201600101600760000160016007600f015403600581101515610f1857fe5b6000806000602b54602d541415156111f557600080fd5b8587148061120e575060158711801561120e5750601586115b15611258576040805160018082526020820188905282519095507f4b5de2075ef693ef5f4607a6b8b9a40b725a253f266a58fadf7cf9bd9805f99c929181900390910190a1611420565b506000905080858711801561126d5750601687105b1561127b57600292506112e9565b868611801561128a5750601686105b156112ad57600392506001915085601514156112a857509282019260015b6112e9565b6015871180156112bd5750601686105b156112cf5760039250600191506112e9565b6015861180156112df5750601687105b1561012757600292505b604080518481526020810187905281517f4b5de2075ef693ef5f4607a6b8b9a40b725a253f266a58fadf7cf9bd9805f99c929181900390910190a181156113a75760015460025461134791600160a060020a039081169116876104c5565b15611351576113a2565b6005805460ff191660011790556002546003935060008051602061164683398151915290849061138990600160a060020a0316610e5f565b6040805192835260208301919091528051918290030190a15b611420565b6002546001546113c491600160a060020a039081169116876104c5565b156113ce57611420565b6005805460ff19166001908117909155546002935060008051602061164683398151915290849061140790600160a060020a0316610e5f565b6040805192835260208301919091528051918290030190a15b5050949350505050565b602954602d546000911461143d57600080fd5b50601654611449610823565b6007846005811061145657fe5b6003020160006007866005811061146957fe5b60030201600101600060076000018860058110151561148457fe5b600302016002018590555084516114a091906020870190611517565b505083516114b391906020860190611517565b506007925083915050600581106114c657fe5b600302016002015460178054909101908190556016805460010190556015101561065157602a54602d5550565b600160a060020a031660009081526006602052604090205490565b602c54805b5090565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061155857805160ff1916838001178555611585565b82800160010185558215611585579182015b8281111561158557825182559160200191906001019061156a565b50611513929150611628565b6060604051908101604052806060815260200160608152602001600081525090565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f106115ec5780548555611585565b8280016001018555821561158557600052602060002091601f016020900482015b8281111561158557825482559160010191906001019061160d565b61164291905b80821115611513576000815560010161162e565b9056004c4660db760944215f41e957066d756ad5fd0eed1b4640632322eb06f77b034da165627a7a72305820cfe808a81d33b992e06f45e7ccab89dca099ddaace6abfbb2847b06a37719ce70029';
+                
+                message.innerHTML = "Before contract init";
+                eth.accounts().then(function(accounts) {
+                    // need HEAPS of gas for deck init, shuffle - OK for demo purposes, not real life
+                BlackjackContract =eth.contract(BlackjackABI, BlackjackBytecode, {from: accounts[0], gas: 5000000 });
+                
+                message.innerHTML = "After contract init";
+                var player = accounts[0];
+                address1.value = player;
+                var dealer = accounts[1];
+                address2.value = dealer;
+                
+                message.innerHTML = "Finishing init web3";
+                
+                // Check Balance of deploying contract to confirm network connection
+                
+                eth.getBalance(accounts[0]).then(function(balance){
+                    message.innerHTML = Eth.fromWei(balance, 'ether');
+                });
+  
+
+                message.innerHTML = "Deploying the contract";
+                
+                //
+                //1. New Contract
+                BlackjackContract.new(function(deployError, deployTxHash){
+                    if (deployError) {
+                        message.innerHTML = 'error: ' + String(deployError);
+                    }
+                    message.innerHTML = 'Trying to make contract';
+                    var checkTransaction = setInterval(function(){
+                    eth.getTransactionReceipt(deployTxHash).then(function(receipt){
+                      if (receipt) {
+                        message.innerHTML = "Receipt";
+                        clearInterval(checkTransaction);
+                        BlackjackInstance = BlackjackContract.at(receipt.contractAddress);
+                        debugMsg.value = String(receipt.contractAddress);
+                        //ADD LISTENERS FOR Hit, Stay, New Game
+                        message.innerHTML = "Try deck init"; // easy - no args
+                        /* DECK INIT USED TO BE HERE */
+                                                
+                        BlackjackInstance.setDealer(dealer, 5000, function(DealerError, DealerResult){
+                            //alert ("Initializing Dealer - line362");
+                            if (DealerError){
+                                console.log("Error init dealer");
+                                alert ("Set Dealer Error");
+                            } else{
+                                console.log("TX: " + String(DealerResult));
+                            }                            
+                        });
+                        BlackjackInstance.setPlayer(player, 5000, function(PlayerError, PlayerResult){
+                            //alert ("Initializing Dealer - line362");
+                            if (PlayerError){
+                                console.log("Error init player");
+                                alert ("Set Player Error");
+                            } else{
+                                console.log("TX: " + String(PlayerResult));
+                            }                            
+                        });
+                        
+                       
+                        hitButton.addEventListener('click', function(){
+                                BlackjackInstance.PlayerHit().then(function(){
+                                    BlackjackInstance.getLastPlayer().then(function(res){
+                                        suit = res[0]; fval = res[1]; nval = res[2]*2/2;
+                                        playerCards = playerCards + fval + suit;
+                                        alert ("Player vals set");
+                                        playersum += nval;
+                                        pCards.value = playerCards;
+                                        pVal.value = playersum;
+                                        playerCardCount ++;
+                
+                                        // disable & lose if > 21
+                                        alert("CHECK IF BUST");
+                                        if (playersum > 21){
+                                            dWin();
+                                        }
+                                    });
+                                });                  
+                        });
+                        
+                        standButton.addEventListener('click', function(){  
+                            alert ("stand clicked");
+                            standRecursion();                           
+                        });
+            
+                        playerButton.addEventListener('click', function(){
+                            // START NEW CONTRACT??
+                            betVal = bet.value;
+                            if (!gameInProgress && betVal > 0){
+                                // INIT ALL
+                                
+                                // START
+                        BlackjackInstance.DeckInit(function(DeckError, DeckResult){
+                            //alert ("Initializing Deck attempt 2");
+                            if (DeckError){
+                                console.log("Error init deck");
+                                alert (String(DeckError));
+                            } else{
+                                console.log( "TX: " + String(DeckResult));
+                                
+                            }
+                            
+                        });
+                        
+                        
+                        //TEST Handling a return from Solidity
+                        BlackjackInstance.getBalance(player,function(error, res){
+                            PBal = res[0];
+                            if (error){
+                                console.log("Error init player");
+                                alert ("Balance Error");
+                            } else{
+                                walletVal.value = PBal/2*2;
+                                playerMoney = PBal/2*2;
+                            }
+                        });
+                        
+                        //END
+                       
+                                debugMsg.value = "In startGame";
+
+                                // Init vars
+                                dealerCards = "";  // Arrays holding the DisplayCard objects used to show the cards
+                                playerCards = "";
+
+                                dealerCardCount = 0;
+                                playerCardCount = 0;  
+
+                                playersum = 0;
+                                dealersum = 0;
+
+                                // Deal Cards
+                                //BlackjackInstance.DealerHit().then(function(res){
+                                BlackjackInstance.DealerHit().then(function(){
+                                    BlackjackInstance.getLastDealer().then(function(res){
+                                        suit = res[0]; fval = res[1]; nval = res[2]*2/2;
+                                        dealerCards = dealerCards + fval + suit;
+                                        alert ("Dealer vals set");
+                                        dealersum += nval;
+                                        dCards.value = dealerCards;
+                                        dVal.value = dealersum;
+                                        alert("done dealer");
+                                    });
+                                });
+                                
+   
+                                alert ("Now for Player Vals");
+                                BlackjackInstance.PlayerHit().then(function(){
+                                    BlackjackInstance.getLastPlayer().then(function(res){
+                                        suit = res[0]; fval = res[1]; nval = res[2]*2/2;
+                                        playerCards = playerCards + fval + suit;
+                                        alert ("Player vals set");
+                                        playersum += nval;
+                                        pCards.value = playerCards;
+                                        pVal.value = playersum;
+                                        temp = 1;
+                                        alert (temp);
+                                        BlackjackInstance.PlayerHit().then(function(){
+                                            BlackjackInstance.getLastPlayer().then(function(res){
+                                                suit = res[0]; fval = res[1]; nval = res[2]*2/2;
+                                                playerCards = playerCards + fval + suit;
+                                                playersum += nval;
+                                                pCards.value = playerCards;
+                                                pVal.value = playersum;
+                                            });
+                                        });
+                                    });
+                                });
+
+                                dealerCardCount = 1;
+                                playerCardCount = 2;
+
+                                standButton.disabled = false;
+                                hitButton.disabled = false;
+                                playerButton.disabled = true;
+                                dealerButton.disabled = true;
+                                gameInProgress = true;
+                                alert ("Buttons enabled2??");
+                            }
+                        });
+                      }
+                    });
+                  }, 200);
+                });
+                
+                
+                
+            });
+                
+            }
+            window.onload = setup;
+            
+        </script>
+  
+        <script>
+  
+         </script>
+        
+         
+         
+         NOT ENOUGH TIME TO PROGRAM IN 1 OR 11 FOR THE ACE.
+         WOULD BE THE NEXT THING TO ADD, ALONG WITH GETTING A BLACKJACK AT DEALT 21
+         I WAS HUNG UP TOO LONG ON RETURNING VARIABLES FROM SOLIDITY AND ON GENERATING A RANDOM NUMBER
+    </body>
+    
+</html>
+
