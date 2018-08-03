@@ -10,6 +10,7 @@ Issues encountered:
 - Had trouble returning values from Solidity. Needed to revise to make separate getter functions.
 - Had trouble generating random numbers. Used the block number as a seed.
 - Had trouble with my stack overflowing.
+- All hands and logic are in Solidity, so this consumes insane amounts of gas!
 
 To play.
 Address [0] is Player and address [1] from the ganache generated addresses is dealer.
