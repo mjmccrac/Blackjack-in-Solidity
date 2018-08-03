@@ -1,6 +1,7 @@
 # Blackjack in Solidity
 
 I had a lot of trouble making this so it is not very polished. 
+I started off working on Blackjack with Matt Stirling (also in this class) but we branched off to take separate approaches.
 Web page was made using Netbeans.
 I know I should have my script in a seaparate file from my HTML, but here it is all in the index.html file.
 There are some pauses while javascript works with Solidity. 
